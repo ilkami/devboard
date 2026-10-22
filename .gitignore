@@ -1,0 +1,21 @@
+# Зависимости
+node_modules/
+
+# Результаты сборки
+dist/
+dist-standalone/
+node-compile-cache/
+.vite/
+*.tsbuildinfo
+
+# Служебные файлы
+temp/
+*.log
+npm-debug.log*
+.env
+.env.local
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+devboard-frontend.zip
