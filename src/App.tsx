@@ -3,6 +3,7 @@ import AppShell from './components/Shell'
 import Dashboard from './pages/Dashboard'
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectBoardPage from './pages/ProjectBoardPage'
+import CalendarPage from './pages/CalendarPage'
 import AuthPage from './pages/AuthPage'
 import Placeholder from './pages/Placeholder'
 import { useAuth } from './auth/AuthContext'
@@ -39,20 +40,7 @@ function AppRoutes() {
             />
           }
         />
-        <Route
-          path="/calendar"
-          element={
-            <Placeholder
-              title="Календарь"
-              modules="Модуль 6"
-              notes={[
-                'Месячная сетка с задачами по дням и переходом между месяцами.',
-                'Список ближайших дедлайнов и отдельный список просроченных задач.',
-                'Сроки хранятся в UTC и отображаются в часовом поясе пользователя.',
-              ]}
-            />
-          }
-        />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route
           path="/technologies"
           element={

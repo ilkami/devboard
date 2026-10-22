@@ -1,71 +1,26 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { Panel } from './ui'
-import {
-  MILESTONES,
-  MONTHS_FULL,
-  WEEKDAYS_SHORT,
-  formatShortDate,
-  today,
-} from '../data/mockData'
-
-interface DayCell {
-  key: string
-  date: Date
-  inMonth: boolean
-}
-
-function buildMonth(year: number, month: number): DayCell[] {
-  const firstOfMonth = new Date(year, month, 1)
-  const leading = (firstOfMonth.getDay() + 6) % 7 // понедельник — первый день недели
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-
-  const cells: DayCell[] = []
-
-  for (let i = leading; i > 0; i -= 1) {
-    const date = new Date(year, month, 1 - i)
-    cells.push({ key: `prev-${date.toISOString()}`, date, inMonth: false })
-  }
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const date = new Date(year, month, day)
-    cells.push({ key: `cur-${day}`, date, inMonth: true })
-  }
-
-  while (cells.length % 7 !== 0) {
-    const last = cells[cells.length - 1].date
-    const date = new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1)
-    cells.push({ key: `next-${date.toISOString()}`, date, inMonth: false })
-  }
-
-  return cells
-}
-
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  )
-}
+import { EVENTS, buildMonth, dayKey, groupByDay, type CalendarEvent } from '../data/calendar'
+import { MONTHS_FULL, WEEKDAYS_SHORT, formatShortDate, today } from '../data/mockData'
 
 export default function CalendarPanel() {
-  const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
+  const navigate = useNavigate()
+  const [monthOffset, setMonthOffset] = useState(0)
 
-  const cells = useMemo(() => buildMonth(cursor.getFullYear(), cursor.getMonth()), [cursor])
+  const year = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1).getFullYear()
+  const month = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1).getMonth()
 
-  const upcoming = useMemo(
+  const cells = useMemo(() => buildMonth(year, month), [year, month])
+  const byDay = useMemo(() => groupByDay(EVENTS), [])
+
+  const upcoming = useMemo<CalendarEvent[]>(
     () =>
-      [...MILESTONES]
-        .filter((item) => item.date.getTime() >= today.getTime())
-        .sort((a, b) => a.date.getTime() - b.date.getTime())
+      EVENTS.filter((event) => event.date.getTime() >= today.getTime())
         .slice(0, 4),
     [],
   )
-
-  const shiftMonth = (delta: number) => {
-    setCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1))
-  }
 
   return (
     <Panel
@@ -75,18 +30,18 @@ export default function CalendarPanel() {
           <button
             type="button"
             className="icon-button icon-button--sm"
-            onClick={() => shiftMonth(-1)}
+            onClick={() => setMonthOffset((value) => value - 1)}
             aria-label="Предыдущий месяц"
           >
             <Icon name="chevron-left" size={15} />
           </button>
           <span className="calendar__month">
-            {MONTHS_FULL[cursor.getMonth()]} {cursor.getFullYear()}
+            {MONTHS_FULL[month]} {year}
           </span>
           <button
             type="button"
             className="icon-button icon-button--sm"
-            onClick={() => shiftMonth(1)}
+            onClick={() => setMonthOffset((value) => value + 1)}
             aria-label="Следующий месяц"
           >
             <Icon name="chevron-right" size={15} />
@@ -102,42 +57,49 @@ export default function CalendarPanel() {
 
       <div className="calendar__grid">
         {cells.map((cell) => {
-          const isToday = sameDay(cell.date, today)
-          const marks = MILESTONES.filter((item) => sameDay(item.date, cell.date))
-
+          const events = byDay.get(cell.key) ?? []
           const classes = ['calendar__cell']
+
           if (!cell.inMonth) classes.push('is-outside')
-          if (isToday) classes.push('is-today')
+          if (cell.key === dayKey(today)) classes.push('is-today')
 
           return (
-            <div key={cell.key} className={classes.join(' ')}>
-              <span className="calendar__day">{cell.date.getDate()}</span>
-              <span className="calendar__dots">
-                {marks.slice(0, 3).map((mark) => (
-                  <span
-                    key={mark.id}
-                    className="calendar__dot"
-                    style={{ background: mark.color }}
-                    title={`${mark.title} · ${mark.project}`}
-                  />
-                ))}
-              </span>
-            </div>
+            <button
+              key={cell.key}
+              type="button"
+              className={classes.join(' ')}
+              onClick={() => navigate(`/calendar?date=${cell.key}`)}
+              title={events.length > 0 ? `${events.length} событий` : 'Открыть день'}
+            >
+              <span>{cell.date.getDate()}</span>
+              {events.length > 0 && (
+                <span className="calendar__dots">
+                  {events.slice(0, 3).map((event) => (
+                    <span
+                      key={event.id}
+                      className="calendar__dot"
+                      style={{ background: event.color }}
+                    />
+                  ))}
+                </span>
+              )}
+            </button>
           )
         })}
       </div>
 
       <ul className="deadline-list">
-        {upcoming.map((item) => (
-          <li key={item.id} className="deadline-row">
-            <span className="deadline-row__dot" style={{ background: item.color }} />
+        {upcoming.map((event) => (
+          <li key={event.id} className="deadline-row">
+            <span className="deadline-row__dot" style={{ background: event.color }} />
             <span className="deadline-row__text">
-              <span className="deadline-row__title">{item.title}</span>
-              <span className="deadline-row__project">{item.project}</span>
+              <span className="deadline-row__title">{event.title}</span>
+              <span className="deadline-row__project">{event.project}</span>
             </span>
-            <span className="deadline-row__date">{formatShortDate(item.date)}</span>
+            <span className="deadline-row__date">{formatShortDate(event.date)}</span>
           </li>
         ))}
+        {upcoming.length === 0 && <li className="deadline-row">Ближайших дедлайнов нет</li>}
       </ul>
     </Panel>
   )
