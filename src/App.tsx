@@ -1,6 +1,8 @@
 import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './components/Shell'
 import Dashboard from './pages/Dashboard'
+import ProjectsPage from './pages/ProjectsPage'
+import ProjectBoardPage from './pages/ProjectBoardPage'
 import AuthPage from './pages/AuthPage'
 import Placeholder from './pages/Placeholder'
 import { useAuth } from './auth/AuthContext'
@@ -21,20 +23,8 @@ function AppRoutes() {
 
       <Route element={<ProtectedShell />}>
         <Route path="/" element={<Dashboard />} />
-        <Route
-          path="/projects"
-          element={
-            <Placeholder
-              title="Проекты"
-              modules="Модули 2, 4, 5, 7"
-              notes={[
-                'Список карточек проектов с фильтрами Все / В работе / Пауза / Архив и сортировкой по дате.',
-                'Карточка проекта: обзор, Kanban-доска, задачи, этапы, заметки, история.',
-                'Kanban-доска с drag-and-drop между колонками To Do / In Progress / Done и сохранением порядка.',
-              ]}
-            />
-          }
-        />
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
         <Route
           path="/tasks"
           element={
