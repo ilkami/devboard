@@ -1,5 +1,5 @@
-import { MILESTONES, TASKS } from './mockData'
-import type { Priority } from '../types'
+import { MILESTONES } from './mockData'
+import type { Priority, TaskItem } from '../types'
 
 /**
  * Единая модель событий календаря.
@@ -31,8 +31,9 @@ export const KIND_LABEL: Record<CalendarEventKind, string> = {
   milestone: 'этап',
 }
 
-function buildEvents(): CalendarEvent[] {
-  const tasks: CalendarEvent[] = TASKS.map((task) => ({
+/** Собирает события из переданных задач и этапов проектов. */
+export function buildEvents(tasks: TaskItem[]): CalendarEvent[] {
+  const taskEvents: CalendarEvent[] = tasks.map((task) => ({
     id: `task-${task.id}`,
     kind: 'task',
     title: task.title,
@@ -43,7 +44,7 @@ function buildEvents(): CalendarEvent[] {
     priority: task.priority,
   }))
 
-  const milestones: CalendarEvent[] = MILESTONES.map((item) => ({
+  const milestoneEvents: CalendarEvent[] = MILESTONES.map((item) => ({
     id: `milestone-${item.id}`,
     kind: 'milestone',
     title: item.title,
@@ -52,10 +53,8 @@ function buildEvents(): CalendarEvent[] {
     color: item.color,
   }))
 
-  return [...tasks, ...milestones].sort((a, b) => a.date.getTime() - b.date.getTime())
+  return [...taskEvents, ...milestoneEvents].sort((a, b) => a.date.getTime() - b.date.getTime())
 }
-
-export const EVENTS: CalendarEvent[] = buildEvents()
 
 export function dayKey(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
-import { EVENTS, KIND_LABEL, buildMonth, dayKey, filterByKind, groupByDay } from '../data/calendar'
+import { KIND_LABEL, buildEvents, buildMonth, dayKey, filterByKind, groupByDay } from '../data/calendar'
 import type { CalendarEventKind } from '../data/calendar'
 import { MONTHS_FULL, WEEKDAYS_SHORT, formatShortDate, today } from '../data/mockData'
+import { useTasks } from '../data/tasksStore'
 
 type KindFilter = 'all' | CalendarEventKind
 
@@ -27,7 +28,9 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState<Date>(initial)
   const [kind, setKind] = useState<KindFilter>('all')
 
-  const events = useMemo(() => filterByKind(EVENTS, kind), [kind])
+  const { allTasks } = useTasks()
+  const allEvents = useMemo(() => buildEvents(allTasks), [allTasks])
+  const events = useMemo(() => filterByKind(allEvents, kind), [allEvents, kind])
   const byDay = useMemo(() => groupByDay(events), [events])
   const cells = useMemo(() => buildMonth(cursor.getFullYear(), cursor.getMonth()), [cursor])
 

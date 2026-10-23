@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from './Icon'
 import { Panel, PriorityBadge } from './ui'
-import { isOverdue, tasksForPeriod } from '../data/mockData'
+import { isOverdue, today } from '../data/mockData'
+import { useTasks } from '../data/tasksStore'
+import type { StoredTask } from '../data/tasksStore'
 
 const PERIODS = [
   { key: 'today', label: 'Сегодня' },
@@ -12,14 +14,28 @@ const PERIODS = [
 
 type Period = (typeof PERIODS)[number]['key']
 
-export default function TasksPanel() {
-  const [period, setPeriod] = useState<Period>('today')
-  const [doneIds, setDoneIds] = useState<string[]>([])
-  const tasks = tasksForPeriod(period)
+const DAY = 86_400_000
 
-  const toggle = (id: string) => {
-    setDoneIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
+function diffDays(task: StoredTask): number {
+  const flat = new Date(
+    task.dueDate.getFullYear(),
+    task.dueDate.getMonth(),
+    task.dueDate.getDate(),
+  ).getTime()
+  return Math.round((flat - today.getTime()) / DAY)
+}
+
+export default function TasksPanel() {
+  const { rootTasks, toggleTask } = useTasks()
+  const [period, setPeriod] = useState<Period>('today')
+
+  const forPeriod = (key: Period): StoredTask[] => {
+    if (key === 'all') return rootTasks
+    const limit = key === 'today' ? 0 : 7
+    return rootTasks.filter((task) => diffDays(task) <= limit)
   }
+
+  const tasks = forPeriod(period)
 
   return (
     <Panel
@@ -30,54 +46,55 @@ export default function TasksPanel() {
         </Link>
       }
     >
-      <div className="tabs" role="tablist" aria-label="Период задач">
-        {PERIODS.map((item) => {
-          const active = period === item.key
-          return (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              className={active ? 'tabs__item tabs__item--active' : 'tabs__item'}
-              onClick={() => setPeriod(item.key)}
-            >
-              {item.label}
-              <span className="tabs__count">{tasksForPeriod(item.key).length}</span>
-            </button>
-          )
-        })}
+      <div className="tabs" role="tablist">
+        {PERIODS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={period === item.key}
+            className={period === item.key ? 'tabs__item tabs__item--active' : 'tabs__item'}
+            onClick={() => setPeriod(item.key)}
+          >
+            {item.label}
+            <span className="tabs__count">{forPeriod(item.key).length}</span>
+          </button>
+        ))}
       </div>
 
       <ul className="task-list">
         {tasks.map((task) => {
-          const done = task.done || doneIds.includes(task.id)
-          const overdue = isOverdue(task.dueDate) && !done
+          const overdue = isOverdue(task.dueDate) && !task.done
 
           return (
-            <li key={task.id} className={done ? 'task-row is-done' : 'task-row'}>
+            <li key={task.id} className={task.done ? 'task-row is-done' : 'task-row'}>
               <input
                 type="checkbox"
                 className="task-row__check"
-                checked={done}
-                onChange={() => toggle(task.id)}
-                aria-label={`Отметить выполненной задачу «${task.title}»`}
+                checked={task.done}
+                onChange={() => toggleTask(task.id)}
+                aria-label={`Выполнено: ${task.title}`}
               />
+
               <span className="task-row__text">
                 <span className="task-row__title">{task.title}</span>
                 <span className="task-row__project">{task.project}</span>
               </span>
+
               {overdue && (
-                <span className="task-row__overdue" title="Срок истёк">
+                <span className="task-row__overdue" title="Просрочено">
                   <Icon name="alert" size={13} />
                 </span>
               )}
+
               <PriorityBadge priority={task.priority} />
             </li>
           )
         })}
 
-        {tasks.length === 0 && <li className="task-row task-row--empty">На этот период задач нет</li>}
+        {tasks.length === 0 && (
+          <li className="task-row task-row--empty">На этот период задач нет</li>
+        )}
       </ul>
     </Panel>
   )

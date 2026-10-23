@@ -127,6 +127,12 @@ const PATHS: Record<IconName, ReactElement> = {
       <path d="M12 10v4.2M12 17h.01" />
     </>
   ),
+  x: (
+    <>
+      <path d="m6.5 6.5 11 11" />
+      <path d="m17.5 6.5-11 11" />
+    </>
+  ),
 }
 
 interface IconProps {

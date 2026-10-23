@@ -29,6 +29,7 @@ export type IconName =
   | 'book'
   | 'target'
   | 'alert'
+  | 'x'
 
 export interface Project {
   id: string

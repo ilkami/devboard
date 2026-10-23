@@ -2,24 +2,25 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { Panel } from './ui'
-import { EVENTS, buildMonth, dayKey, groupByDay, type CalendarEvent } from '../data/calendar'
+import { buildEvents, buildMonth, dayKey, groupByDay, type CalendarEvent } from '../data/calendar'
 import { MONTHS_FULL, WEEKDAYS_SHORT, formatShortDate, today } from '../data/mockData'
+import { useTasks } from '../data/tasksStore'
 
 export default function CalendarPanel() {
   const navigate = useNavigate()
+  const { allTasks } = useTasks()
   const [monthOffset, setMonthOffset] = useState(0)
 
   const year = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1).getFullYear()
   const month = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1).getMonth()
 
   const cells = useMemo(() => buildMonth(year, month), [year, month])
-  const byDay = useMemo(() => groupByDay(EVENTS), [])
+  const events = useMemo(() => buildEvents(allTasks), [allTasks])
+  const byDay = useMemo(() => groupByDay(events), [events])
 
   const upcoming = useMemo<CalendarEvent[]>(
-    () =>
-      EVENTS.filter((event) => event.date.getTime() >= today.getTime())
-        .slice(0, 4),
-    [],
+    () => events.filter((event) => event.date.getTime() >= today.getTime()).slice(0, 4),
+    [events],
   )
 
   return (
@@ -57,7 +58,7 @@ export default function CalendarPanel() {
 
       <div className="calendar__grid">
         {cells.map((cell) => {
-          const events = byDay.get(cell.key) ?? []
+          const dayEvents = byDay.get(cell.key) ?? []
           const classes = ['calendar__cell']
 
           if (!cell.inMonth) classes.push('is-outside')
@@ -69,12 +70,12 @@ export default function CalendarPanel() {
               type="button"
               className={classes.join(' ')}
               onClick={() => navigate(`/calendar?date=${cell.key}`)}
-              title={events.length > 0 ? `${events.length} событий` : 'Открыть день'}
+              title={dayEvents.length > 0 ? `${dayEvents.length} событий` : 'Открыть день'}
             >
               <span>{cell.date.getDate()}</span>
-              {events.length > 0 && (
+              {dayEvents.length > 0 && (
                 <span className="calendar__dots">
-                  {events.slice(0, 3).map((event) => (
+                  {dayEvents.slice(0, 3).map((event) => (
                     <span
                       key={event.id}
                       className="calendar__dot"

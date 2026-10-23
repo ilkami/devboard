@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard'
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectBoardPage from './pages/ProjectBoardPage'
 import CalendarPage from './pages/CalendarPage'
+import TasksPage from './pages/TasksPage'
 import AuthPage from './pages/AuthPage'
 import Placeholder from './pages/Placeholder'
 import { useAuth } from './auth/AuthContext'
@@ -26,20 +27,7 @@ function AppRoutes() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
-        <Route
-          path="/tasks"
-          element={
-            <Placeholder
-              title="Задачи"
-              modules="Модуль 3"
-              notes={[
-                'Список задач с фильтрами Сегодня / Неделя / Все, по проекту, статусу и приоритету.',
-                'Подзадачи через parent_task_id, дерево любой глубины.',
-                'Карточка задачи: срок, оценка часов, таймер учёта времени, привязка к коммиту.',
-              ]}
-            />
-          }
-        />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route
           path="/technologies"

@@ -2,7 +2,8 @@ import { Link, useParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import KanbanBoard from '../components/KanbanBoard'
 import { ProgressBar, TechTag } from '../components/ui'
-import { PROJECTS, TASKS, formatShortDate, isOverdue, relativeDeadline } from '../data/mockData'
+import { PROJECTS, formatShortDate, isOverdue, relativeDeadline } from '../data/mockData'
+import { useTasks } from '../data/tasksStore'
 
 const STATUS_LABEL = {
   active: 'В работе',
@@ -12,6 +13,7 @@ const STATUS_LABEL = {
 
 export default function ProjectBoardPage() {
   const { projectId } = useParams()
+  const { allTasks } = useTasks()
   const project = PROJECTS.find((item) => item.id === projectId)
 
   if (!project) {
@@ -28,7 +30,7 @@ export default function ProjectBoardPage() {
     )
   }
 
-  const tasks = TASKS.filter((task) => task.project === project.name)
+  const tasks = allTasks.filter((task) => task.project === project.name && task.parentId === null)
   const overdue = isOverdue(project.dueDate)
 
   return (
