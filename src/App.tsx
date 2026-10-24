@@ -6,8 +6,8 @@ import ProjectBoardPage from './pages/ProjectBoardPage'
 import CalendarPage from './pages/CalendarPage'
 import TasksPage from './pages/TasksPage'
 import TechnologiesPage from './pages/TechnologiesPage'
+import ReportsPage from './pages/ReportsPage'
 import AuthPage from './pages/AuthPage'
-import Placeholder from './pages/Placeholder'
 import { useAuth } from './auth/AuthContext'
 
 function ProtectedShell() {
@@ -31,20 +31,7 @@ function AppRoutes() {
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/technologies" element={<TechnologiesPage />} />
-        <Route
-          path="/reports"
-          element={
-            <Placeholder
-              title="Отчёты"
-              modules="Модули 10, 14"
-              notes={[
-                'Столбчатая диаграмма прогресса по проектам и динамика закрытия задач по неделям.',
-                'План/факт трудозатрат: оценка в часах против фактических записей времени.',
-                'Анализ сроков: отставания и ориентировочная дата завершения проекта.',
-              ]}
-            />
-          }
-        />
+        <Route path="/reports" element={<ReportsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
