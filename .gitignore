@@ -8,6 +8,15 @@ node-compile-cache/
 .vite/
 *.tsbuildinfo
 
+# Backend
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.db
+backend/.env
+
 # Служебные файлы
 temp/
 *.log

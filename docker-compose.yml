@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: devboard-db
+    environment:
+      POSTGRES_USER: devboard
+      POSTGRES_PASSWORD: devboard
+      POSTGRES_DB: devboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devboard -d devboard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: devboard-api
+    environment:
+      DATABASE_URL: postgresql+psycopg://devboard:devboard@db:5432/devboard
+      SECRET_KEY: change-me-to-a-long-random-string
+      COOKIE_SECURE: "false"
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      SEED_DEMO: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
