@@ -2518,3 +2518,89 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==================================================================
+   CRUD проектов: модальное окно, действия, вспомогательные элементы
+   ================================================================== */
+
+a.button {
+  text-decoration: none;
+}
+
+.button--danger {
+  background: var(--surface);
+  border: 1px solid #f3cccc;
+  color: #c93a3a;
+}
+
+.button--danger:hover {
+  background: #fdecec;
+  border-color: #eeb2b2;
+}
+
+.page-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.page-topline .back-link {
+  margin-bottom: 0;
+}
+
+.project-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.field__textarea {
+  height: auto;
+  min-height: 74px;
+  padding: 10px 12px;
+  line-height: 1.45;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.tech-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tech-picker__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tech-picker__item:hover {
+  background: var(--surface-2);
+}
+
+.tech-picker__item.is-active {
+  background: #eef2ff;
+  border-color: #c9d6ff;
+  color: var(--primary);
+}
+
+.tech-picker__mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}

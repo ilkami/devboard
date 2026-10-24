@@ -4,6 +4,7 @@ import App from './App'
 import { AuthProvider } from './auth/AuthContext'
 import { TasksProvider } from './data/tasksStore'
 import { TechnologiesProvider } from './data/techStore'
+import { ProjectsProvider } from './data/projectsStore'
 import './styles/global.css'
 
 const container = document.getElementById('root')
@@ -17,7 +18,9 @@ createRoot(container).render(
     <AuthProvider>
       <TasksProvider>
         <TechnologiesProvider>
-          <App />
+          <ProjectsProvider>
+            <App />
+          </ProjectsProvider>
         </TechnologiesProvider>
       </TasksProvider>
     </AuthProvider>

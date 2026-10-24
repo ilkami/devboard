@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import Icon from '../components/Icon'
 import KpiCard from '../components/KpiCard'
 import ProjectCard from '../components/ProjectCard'
@@ -7,16 +8,9 @@ import CalendarPanel from '../components/CalendarPanel'
 import TechPanel from '../components/TechPanel'
 import ProgressPanel from '../components/ProgressPanel'
 import { Panel } from '../components/ui'
-import {
-  PROJECTS,
-  activeProjects,
-  averageProgress,
-  formatShortDate,
-  nearestDeadline,
-  overdueTasks,
-  relativeDeadline,
-  tasksForPeriod,
-} from '../data/mockData'
+import { formatShortDate, relativeDeadline, today } from '../data/mockData'
+import { useProjects } from '../data/projectsStore'
+import { useTasks } from '../data/tasksStore'
 import type { ProjectStatus } from '../types'
 
 type FilterKey = 'all' | ProjectStatus
@@ -29,28 +23,53 @@ const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: 'archived', label: 'Архив' },
 ]
 
+const DAY = 86_400_000
+
+function dayDiff(date: Date): number {
+  const flat = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  return Math.round((flat - today.getTime()) / DAY)
+}
+
 export default function Dashboard() {
+  const { projects } = useProjects()
+  const { rootTasks } = useTasks()
+
   const [filter, setFilter] = useState<FilterKey>('all')
   const [sort, setSort] = useState<SortMode>('due')
 
   const counts = useMemo(
     () => ({
-      all: PROJECTS.length,
-      active: PROJECTS.filter((project) => project.status === 'active').length,
-      paused: PROJECTS.filter((project) => project.status === 'paused').length,
-      archived: PROJECTS.filter((project) => project.status === 'archived').length,
+      all: projects.length,
+      active: projects.filter((project) => project.status === 'active').length,
+      paused: projects.filter((project) => project.status === 'paused').length,
+      archived: projects.filter((project) => project.status === 'archived').length,
     }),
-    [],
+    [projects],
   )
 
   const visibleProjects = useMemo(() => {
-    const list = filter === 'all' ? PROJECTS : PROJECTS.filter((project) => project.status === filter)
+    const list = filter === 'all' ? projects : projects.filter((project) => project.status === filter)
     return sort === 'due'
       ? [...list].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
       : [...list].sort((a, b) => a.name.localeCompare(b.name))
-  }, [filter, sort])
+  }, [projects, filter, sort])
 
-  const weekTasks = tasksForPeriod('week').length
+  const activeProjects = projects.filter((project) => project.status === 'active')
+
+  const averageProgress =
+    activeProjects.length === 0
+      ? 0
+      : Math.round(
+          activeProjects.reduce((sum, project) => sum + project.progress, 0) / activeProjects.length,
+        )
+
+  const nearestDeadline =
+    activeProjects.length === 0
+      ? null
+      : [...activeProjects].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0]
+
+  const weekTasks = rootTasks.filter((task) => dayDiff(task.dueDate) <= 7).length
+  const overdueTasks = rootTasks.filter((task) => !task.done && dayDiff(task.dueDate) < 0).length
 
   return (
     <div className="dashboard">
@@ -81,16 +100,20 @@ export default function Dashboard() {
           value={String(weekTasks)}
           icon="check-square"
           accent="#7C5CFC"
-          hint={`просрочено: ${overdueTasks.length}`}
+          hint={`просрочено: ${overdueTasks}`}
           spark={{ values: [4, 6, 5, 8, 7, 9, weekTasks], variant: 'bars' }}
         />
         <KpiCard
           label="Ближайший дедлайн"
-          value={formatShortDate(nearestDeadline.dueDate)}
+          value={nearestDeadline ? formatShortDate(nearestDeadline.dueDate) : '—'}
           icon="clock"
           accent="#F5A524"
           warning
-          hint={`${relativeDeadline(nearestDeadline.dueDate)} · ${nearestDeadline.name}`}
+          hint={
+            nearestDeadline
+              ? `${relativeDeadline(nearestDeadline.dueDate)} · ${nearestDeadline.name}`
+              : 'нет активных проектов'
+          }
         />
         <KpiCard
           label="Средний прогресс"
@@ -140,7 +163,9 @@ export default function Dashboard() {
 
           <div className="project-grid">
             {visibleProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <Link key={project.id} to={`/projects/${project.id}`} className="project-link">
+                <ProjectCard project={project} />
+              </Link>
             ))}
             {visibleProjects.length === 0 && (
               <p className="empty">В этом статусе проектов нет</p>

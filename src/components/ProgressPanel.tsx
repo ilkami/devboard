@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from './Icon'
 import { Panel } from './ui'
-import { activeProjects } from '../data/mockData'
+import { useProjects } from '../data/projectsStore'
 
 type SortMode = 'progress' | 'name'
 
@@ -13,15 +13,15 @@ function truncate(text: string, limit = 18): string {
 }
 
 export default function ProgressPanel() {
+  const { projects: allProjects } = useProjects()
   const [sort, setSort] = useState<SortMode>('progress')
 
-  const projects = useMemo(
-    () =>
-      sort === 'progress'
-        ? [...activeProjects].sort((a, b) => b.progress - a.progress)
-        : [...activeProjects].sort((a, b) => a.name.localeCompare(b.name)),
-    [sort],
-  )
+  const projects = useMemo(() => {
+    const active = allProjects.filter((item) => item.status === 'active')
+    return sort === 'progress'
+      ? [...active].sort((a, b) => b.progress - a.progress)
+      : [...active].sort((a, b) => a.name.localeCompare(b.name))
+  }, [allProjects, sort])
 
   const plotWidth = PLOT.right - PLOT.left
   const plotHeight = PLOT.bottom - PLOT.top

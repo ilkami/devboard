@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ProjectCard from '../components/ProjectCard'
-import { PROJECTS } from '../data/mockData'
+import ProjectModal from '../components/ProjectModal'
+import { useProjects } from '../data/projectsStore'
 import { plural } from '../utils/plural'
 import type { ProjectStatus } from '../types'
 
@@ -17,40 +18,48 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 ]
 
 export default function ProjectsPage() {
+  const { projects, createProject } = useProjects()
+  const [params, setParams] = useSearchParams()
+
   const [filter, setFilter] = useState<Filter>('all')
   const [sort, setSort] = useState<Sort>('due')
   const [query, setQuery] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
 
-  const counts = useMemo<Record<Filter, number>>(
+  // Кнопка «Новый проект» в шапке открывает эту страницу с ?new=1
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setModalOpen(true)
+      setParams({}, { replace: true })
+    }
+  }, [params, setParams])
+
+  const counts = useMemo(
     () => ({
-      all: PROJECTS.length,
-      active: PROJECTS.filter((item) => item.status === 'active').length,
-      paused: PROJECTS.filter((item) => item.status === 'paused').length,
-      archived: PROJECTS.filter((item) => item.status === 'archived').length,
+      all: projects.length,
+      active: projects.filter((project) => project.status === 'active').length,
+      paused: projects.filter((project) => project.status === 'paused').length,
+      archived: projects.filter((project) => project.status === 'archived').length,
     }),
-    [],
+    [projects],
   )
 
-  const projects = useMemo(() => {
+  const visible = useMemo(() => {
     const text = query.trim().toLowerCase()
+    const list = projects.filter((project) => {
+      if (filter !== 'all' && project.status !== filter) return false
+      if (!text) return true
+      return (
+        project.name.toLowerCase().includes(text) ||
+        project.description.toLowerCase().includes(text) ||
+        project.tech.some((item) => item.toLowerCase().includes(text))
+      )
+    })
 
-    const filtered = PROJECTS.filter((item) => (filter === 'all' ? true : item.status === filter))
-      .filter((item) => {
-        if (!text) return true
-        return (
-          item.name.toLowerCase().includes(text) ||
-          item.description.toLowerCase().includes(text) ||
-          item.tech.some((tech) => tech.toLowerCase().includes(text))
-        )
-      })
-
-    const sorted = [...filtered]
-    if (sort === 'due') sorted.sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-    if (sort === 'progress') sorted.sort((a, b) => b.progress - a.progress)
-    if (sort === 'name') sorted.sort((a, b) => a.name.localeCompare(b.name))
-
-    return sorted
-  }, [filter, sort, query])
+    if (sort === 'due') return [...list].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+    if (sort === 'progress') return [...list].sort((a, b) => b.progress - a.progress)
+    return [...list].sort((a, b) => a.name.localeCompare(b.name))
+  }, [projects, filter, sort, query])
 
   return (
     <div className="page">
@@ -58,8 +67,8 @@ export default function ProjectsPage() {
         <div>
           <h1 className="page-title">Проекты</h1>
           <p className="page-subtitle">
-            {PROJECTS.length} {plural(PROJECTS.length, 'проект', 'проекта', 'проектов')} ·{' '}
-            {counts.active} в работе · {counts.paused} на паузе
+            {counts.all} {plural(counts.all, 'проект', 'проекта', 'проектов')} · {counts.active} в работе ·{' '}
+            {counts.archived} в архиве
           </p>
         </div>
 
@@ -70,7 +79,7 @@ export default function ProjectsPage() {
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Название, описание, технология"
+              placeholder="Поиск по названию, описанию, технологии"
               aria-label="Поиск проектов"
             />
           </label>
@@ -87,6 +96,15 @@ export default function ProjectsPage() {
             </select>
             <Icon name="chevron-down" size={14} />
           </label>
+
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={() => setModalOpen(true)}
+          >
+            <Icon name="plus" size={15} />
+            Новый проект
+          </button>
         </div>
       </header>
 
@@ -104,19 +122,34 @@ export default function ProjectsPage() {
         ))}
       </div>
 
-      {projects.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="empty-state">
           <Icon name="folder" size={26} />
-          <p>По этому фильтру проектов нет</p>
+          <p>Под выбранные условия проектов нет</p>
+          <button type="button" className="button button--primary" onClick={() => setModalOpen(true)}>
+            Создать проект
+          </button>
         </div>
       ) : (
         <div className="project-grid project-grid--page">
-          {projects.map((project) => (
+          {visible.map((project) => (
             <Link key={project.id} to={`/projects/${project.id}`} className="project-link">
               <ProjectCard project={project} />
             </Link>
           ))}
         </div>
+      )}
+
+      {modalOpen && (
+        <ProjectModal
+          onClose={() => setModalOpen(false)}
+          onSubmit={(draft) => {
+            const error = createProject(draft)
+            if (error) return error
+            setModalOpen(false)
+            return null
+          }}
+        />
       )}
     </div>
   )

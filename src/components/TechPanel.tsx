@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import Icon from './Icon'
 import { Panel, TechMark } from './ui'
-import { PROJECTS } from '../data/mockData'
+import { useProjects } from '../data/projectsStore'
 import { useTechnologies } from '../data/techStore'
 import { plural } from '../utils/plural'
 
@@ -9,20 +9,21 @@ type SortMode = 'count' | 'name'
 
 export default function TechPanel() {
   const { technologies } = useTechnologies()
+  const { projects } = useProjects()
   const [sort, setSort] = useState<SortMode>('count')
 
   const usage = useMemo(() => {
     const list = technologies
       .map((tech) => ({
         ...tech,
-        count: PROJECTS.filter((project) => project.tech.includes(tech.name)).length,
+        count: projects.filter((project) => project.tech.includes(tech.name)).length,
       }))
       .filter((tech) => tech.count > 0)
 
     return sort === 'count'
       ? [...list].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       : [...list].sort((a, b) => a.name.localeCompare(b.name))
-  }, [technologies, sort])
+  }, [technologies, projects, sort])
 
   return (
     <Panel

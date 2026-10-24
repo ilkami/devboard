@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { initials, useAuth } from '../auth/AuthContext'
 import { TASKS, isOverdue } from '../data/mockData'
@@ -115,10 +115,10 @@ function Topbar() {
       </label>
 
       <div className="topbar__actions">
-        <button type="button" className="button button--primary">
+        <Link to="/projects?new=1" className="button button--primary">
           <Icon name="plus" size={16} strokeWidth={2.1} />
           Новый проект
-        </button>
+        </Link>
 
         <button type="button" className="icon-button" aria-label="Уведомления">
           <Icon name="bell" size={19} />
