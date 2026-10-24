@@ -5,6 +5,7 @@ import ProjectsPage from './pages/ProjectsPage'
 import ProjectBoardPage from './pages/ProjectBoardPage'
 import CalendarPage from './pages/CalendarPage'
 import TasksPage from './pages/TasksPage'
+import TechnologiesPage from './pages/TechnologiesPage'
 import AuthPage from './pages/AuthPage'
 import Placeholder from './pages/Placeholder'
 import { useAuth } from './auth/AuthContext'
@@ -29,20 +30,7 @@ function AppRoutes() {
         <Route path="/projects/:projectId" element={<ProjectBoardPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
-        <Route
-          path="/technologies"
-          element={
-            <Placeholder
-              title="Технологии"
-              modules="Модуль 5"
-              notes={[
-                'Справочник технологий: название, категория, иконка.',
-                'Число проектов на каждую технологию и фильтр проектов по технологии.',
-                'Добавление и редактирование технологий.',
-              ]}
-            />
-          }
-        />
+        <Route path="/technologies" element={<TechnologiesPage />} />
         <Route
           path="/reports"
           element={

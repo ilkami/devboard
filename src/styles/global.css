@@ -2357,3 +2357,164 @@ textarea {
     gap: 8px;
   }
 }
+
+/* ==================================================================
+   Раздел «Технологии»
+   ================================================================== */
+
+.tech-layout {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.tech-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+}
+
+.tech-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tech-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.tech-card.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(59, 98, 246, 0.14);
+}
+
+.tech-card__mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.tech-card__name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tech-card__meta {
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+.tech-detail__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tech-detail__name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tech-detail__meta {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.tech-detail__list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tech-detail__row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.tech-detail__row:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.tech-detail__row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tech-detail__row-name {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.tech-detail__row-date {
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.tech-detail__empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.swatch {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.swatch.is-active {
+  border-color: var(--text);
+}
+
+@media (max-width: 1100px) {
+  .tech-layout {
+    grid-template-columns: 1fr;
+  }
+}
