@@ -1,10 +1,18 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# backend/.env ищется относительно файла настроек, а не текущей папки запуска:
+# сервер можно стартовать как из корня репозитория, так и из backend/.
+ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
     """Конфигурация приложения. Значения читаются из backend/.env."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(ENV_FILE), env_file_encoding="utf-8", extra="ignore"
+    )
 
     app_name: str = "DevBoard API"
     api_prefix: str = "/api/v1"
