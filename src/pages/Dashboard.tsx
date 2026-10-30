@@ -8,7 +8,7 @@ import CalendarPanel from '../components/CalendarPanel'
 import TechPanel from '../components/TechPanel'
 import ProgressPanel from '../components/ProgressPanel'
 import { Panel } from '../components/ui'
-import { formatShortDate, relativeDeadline, today } from '../data/mockData'
+import { deadlineValue, formatShortDate, relativeDeadline, today } from '../data/mockData'
 import { useProjects } from '../data/projectsStore'
 import { useTasks } from '../data/tasksStore'
 import type { ProjectStatus } from '../types'
@@ -25,7 +25,8 @@ const FILTERS: Array<{ key: FilterKey; label: string }> = [
 
 const DAY = 86_400_000
 
-function dayDiff(date: Date): number {
+function dayDiff(date: Date | null): number {
+  if (!date) return Number.POSITIVE_INFINITY
   const flat = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   return Math.round((flat - today.getTime()) / DAY)
 }
@@ -50,7 +51,7 @@ export default function Dashboard() {
   const visibleProjects = useMemo(() => {
     const list = filter === 'all' ? projects : projects.filter((project) => project.status === filter)
     return sort === 'due'
-      ? [...list].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+      ? [...list].sort((a, b) => deadlineValue(a.dueDate) - deadlineValue(b.dueDate))
       : [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [projects, filter, sort])
 
@@ -66,7 +67,7 @@ export default function Dashboard() {
   const nearestDeadline =
     activeProjects.length === 0
       ? null
-      : [...activeProjects].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0]
+      : [...activeProjects].sort((a, b) => deadlineValue(a.dueDate) - deadlineValue(b.dueDate))[0]
 
   const weekTasks = rootTasks.filter((task) => dayDiff(task.dueDate) <= 7).length
   const overdueTasks = rootTasks.filter((task) => !task.done && dayDiff(task.dueDate) < 0).length

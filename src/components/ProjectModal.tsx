@@ -9,7 +9,8 @@ import type { Project, ProjectStatus } from '../types'
 interface ProjectModalProps {
   initial?: Project
   onClose: () => void
-  onSubmit: (draft: ProjectDraft) => string | null
+  /** Возвращает текст ошибки или null, если сохранение прошло успешно. */
+  onSubmit: (draft: ProjectDraft) => Promise<string | null> | string | null
 }
 
 export default function ProjectModal({ initial, onClose, onSubmit }: ProjectModalProps) {
@@ -26,15 +27,21 @@ export default function ProjectModal({ initial, onClose, onSubmit }: ProjectModa
   const [tech, setTech] = useState<string[]>(initial?.tech ?? [])
   const [accent, setAccent] = useState(initial?.accent ?? ACCENTS[0])
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const toggleTech = (value: string) => {
     setTech((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]))
   }
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const message = onSubmit({ name, description, due, tech, status, accent })
-    if (message) setError(message)
+    setBusy(true)
+    try {
+      const message = await onSubmit({ name, description, due, tech, status, accent })
+      if (message) setError(message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -148,8 +155,8 @@ export default function ProjectModal({ initial, onClose, onSubmit }: ProjectModa
             <button type="button" className="button button--ghost" onClick={onClose}>
               Отмена
             </button>
-            <button type="submit" className="button button--primary">
-              {initial ? 'Сохранить' : 'Создать проект'}
+            <button type="submit" className="button button--primary" disabled={busy}>
+              {busy ? 'Сохраняем…' : initial ? 'Сохранить' : 'Создать проект'}
             </button>
           </div>
         </form>

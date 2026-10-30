@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import Icon from './Icon'
 import { initials, useAuth } from '../auth/AuthContext'
-import { TASKS, isOverdue } from '../data/mockData'
+import { isOverdue } from '../data/mockData'
+import { useTasks } from '../data/tasksStore'
 import type { IconName } from '../types'
 
 interface NavItem {
@@ -56,9 +57,9 @@ function UserMenu() {
 
   if (!user) return null
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setOpen(false)
-    logout()
+    await logout()
     navigate('/login', { replace: true })
   }
 
@@ -99,7 +100,9 @@ function UserMenu() {
 
 function Topbar() {
   const [query, setQuery] = useState('')
-  const attention = TASKS.filter((task) => isOverdue(task.dueDate)).length
+  const { rootTasks } = useTasks()
+  // Счётчик напоминаний: просроченные и невыполненные задачи
+  const attention = rootTasks.filter((task) => !task.done && isOverdue(task.dueDate)).length
 
   return (
     <header className="topbar">

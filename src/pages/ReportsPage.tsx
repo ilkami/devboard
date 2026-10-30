@@ -5,6 +5,7 @@ import { Panel } from '../components/ui'
 import { today } from '../data/mockData'
 import { useProjects } from '../data/projectsStore'
 import { useTasks } from '../data/tasksStore'
+import type { StoredTask } from '../data/tasksStore'
 import type { Priority } from '../types'
 
 const DAY = 86_400_000
@@ -46,7 +47,8 @@ function startOfWeek(date: Date): Date {
   return new Date(flat.getFullYear(), flat.getMonth(), flat.getDate() - shift)
 }
 
-function dayDiff(date: Date): number {
+function dayDiff(date: Date | null): number {
+  if (!date) return Number.POSITIVE_INFINITY
   return Math.round((startOfDay(date).getTime() - today.getTime()) / DAY)
 }
 
@@ -70,7 +72,10 @@ export default function ReportsPage() {
       const start = new Date(current.getFullYear(), current.getMonth(), current.getDate() - offset)
       const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7)
 
-      const items = rootTasks.filter((task) => task.dueDate >= start && task.dueDate < end)
+      const items = rootTasks.filter(
+        (task): task is StoredTask & { dueDate: Date } =>
+          task.dueDate !== null && task.dueDate >= start && task.dueDate < end,
+      )
 
       return {
         key: `${start.getFullYear()}-${start.getMonth()}-${start.getDate()}`,

@@ -2814,3 +2814,39 @@ a.button {
     text-align: left;
   }
 }
+
+/* ==================================================================
+   Состояние загрузки: проверка сессии и первичная загрузка данных
+   ================================================================== */
+
+.app-loading {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: 13.5px;
+}
+
+.app-loading__spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid var(--border-strong);
+  border-top-color: var(--primary);
+  animation: app-loading-spin 0.75s linear infinite;
+}
+
+@keyframes app-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}

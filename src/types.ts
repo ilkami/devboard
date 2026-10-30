@@ -4,6 +4,9 @@ export type Priority = 'high' | 'medium' | 'low'
 
 export type ProjectStatus = 'active' | 'paused' | 'archived'
 
+/** Колонки Kanban-доски; совпадают с кодами статусов в таблице task_statuses. */
+export type TaskStatus = 'todo' | 'in_progress' | 'done'
+
 export type IconName =
   | 'home'
   | 'folder'
@@ -41,7 +44,8 @@ export interface Project {
   accent: string
   tech: string[]
   progress: number
-  dueDate: Date
+  /** null — срок не задан (поле due_date в базе допускает NULL). */
+  dueDate: Date | null
 }
 
 export interface TaskItem {
@@ -50,7 +54,8 @@ export interface TaskItem {
   project: string
   priority: Priority
   done: boolean
-  dueDate: Date
+  dueDate: Date | null
+  status?: TaskStatus
 }
 
 export interface Technology {

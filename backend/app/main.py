@@ -1,9 +1,11 @@
 import secrets
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .db import create_tables
@@ -70,3 +72,31 @@ def health() -> dict:
 
 for module in (auth, projects, tasks, technologies, dashboard, reports):
     app.include_router(module.router, prefix=settings.api_prefix)
+
+
+# --- Собранный интерфейс -------------------------------------------------
+# Если рядом с backend лежит папка dist (результат `npm run build`), FastAPI
+# раздаёт сам сайт: открывается один адрес http://localhost:8000 без Vite.
+
+STATIC_DIR = Path(__file__).resolve().parents[2] / "dist"
+
+if (STATIC_DIR / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def serve_spa(full_path: str):
+    """Отдаёт файлы сборки и index.html для клиентских маршрутов React Router."""
+    if full_path.startswith("api/"):
+        raise HTTPException(404, "Маршрут API не найден")
+
+    if not (STATIC_DIR / "index.html").is_file():
+        raise HTTPException(
+            404, "Интерфейс не собран: выполните `npm install` и `npm run build` в корне проекта"
+        )
+
+    candidate = (STATIC_DIR / full_path).resolve()
+    if full_path and candidate.is_file() and STATIC_DIR in candidate.parents:
+        return FileResponse(candidate)
+
+    return FileResponse(STATIC_DIR / "index.html")

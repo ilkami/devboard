@@ -1,12 +1,17 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { PROJECTS } from './mockData'
 import type { Project, ProjectStatus } from '../types'
+import { api, ApiError, API_ENABLED } from '../api/client'
+import type { ApiProject } from '../api/dto'
+import { monogram, projectFromApi, toDayString } from '../api/mappers'
+import { useAuth } from '../auth/AuthContext'
 
 /**
  * Хранилище проектов.
- * Создание, редактирование, архивирование и удаление сохраняются в localStorage.
- * При подключении backend заменяется вызовами /projects.
+ *
+ * В обычном режиме данные живут в PostgreSQL и запрашиваются через /projects.
+ * Автономная сборка (file://) работает без сервера: тогда используется localStorage.
  */
 
 export interface ProjectDraft {
@@ -20,42 +25,41 @@ export interface ProjectDraft {
 
 interface ProjectsContextValue {
   projects: Project[]
-  createProject: (draft: ProjectDraft) => string | null
-  updateProject: (id: string, draft: ProjectDraft) => string | null
-  setStatus: (id: string, status: ProjectStatus) => void
-  removeProject: (id: string) => void
-  resetProjects: () => void
+  /** false, пока первый запрос к API не завершён. */
+  ready: boolean
+  error: string
+  reload: () => Promise<void>
+  createProject: (draft: ProjectDraft) => Promise<string | null>
+  updateProject: (id: string, draft: ProjectDraft) => Promise<string | null>
+  setStatus: (id: string, status: ProjectStatus) => Promise<void>
+  removeProject: (id: string) => Promise<void>
 }
 
 const STORAGE_KEY = 'devboard.projects'
 
 export const ACCENTS = ['#3B62F6', '#7C5CFC', '#12B981', '#F5A524', '#0EA5E9', '#EF4444']
 
-type SerializedProject = Omit<Project, 'dueDate'> & { dueDate: string }
+type SerializedProject = Omit<Project, 'dueDate'> & { dueDate: string | null }
 
-function monogram(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return 'NP'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[1][0]).toUpperCase()
-}
-
-function load(): Project[] {
+function loadLocal(): Project[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return PROJECTS
     const parsed = JSON.parse(raw) as SerializedProject[]
     if (!Array.isArray(parsed) || parsed.length === 0) return PROJECTS
-    return parsed.map((item) => ({ ...item, dueDate: new Date(item.dueDate) }))
+    return parsed.map((item) => ({
+      ...item,
+      dueDate: item.dueDate ? new Date(item.dueDate) : null,
+    }))
   } catch {
     return PROJECTS
   }
 }
 
-function save(projects: Project[]): void {
+function saveLocal(projects: Project[]): void {
   const payload: SerializedProject[] = projects.map((item) => ({
     ...item,
-    dueDate: item.dueDate.toISOString(),
+    dueDate: item.dueDate ? item.dueDate.toISOString() : null,
   }))
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
 }
@@ -63,19 +67,61 @@ function save(projects: Project[]): void {
 const ProjectsContext = createContext<ProjectsContextValue | null>(null)
 
 export function ProjectsProvider({ children }: { children: ReactNode }) {
-  const [projects, setProjects] = useState<Project[]>(load)
+  const { user } = useAuth()
+  const [projects, setProjects] = useState<Project[]>(() => (API_ENABLED ? [] : loadLocal()))
+  const [ready, setReady] = useState(!API_ENABLED)
+  const [error, setError] = useState('')
 
-  const persist = useCallback((next: Project[]) => {
-    save(next)
-    setProjects(next)
+  const reload = useCallback(async () => {
+    if (!API_ENABLED) return
+    try {
+      const items = await api.get<ApiProject[]>('/projects')
+      setProjects(items.map(projectFromApi))
+      setError('')
+    } catch (cause) {
+      setProjects([])
+      if (cause instanceof ApiError && cause.status !== 401) setError(cause.message)
+    } finally {
+      setReady(true)
+    }
   }, [])
 
+  // Данные перезапрашиваются при входе и смене пользователя
+  useEffect(() => {
+    if (!API_ENABLED) return
+    if (!user) {
+      setProjects([])
+      setReady(false)
+      return
+    }
+    void reload()
+  }, [user, reload])
+
   const createProject = useCallback(
-    (draft: ProjectDraft): string | null => {
+    async (draft: ProjectDraft): Promise<string | null> => {
       const name = draft.name.trim()
       if (name.length < 2) return 'Название должно содержать минимум 2 символа'
       if (projects.some((item) => item.name.toLowerCase() === name.toLowerCase())) {
         return 'Проект с таким названием уже существует'
+      }
+
+      const dueDate = draft.due ? new Date(`${draft.due}T00:00:00`) : null
+
+      if (API_ENABLED) {
+        try {
+          const created = await api.post<ApiProject>('/projects', {
+            name,
+            description: draft.description.trim(),
+            status: draft.status,
+            color: draft.accent,
+            due_date: toDayString(dueDate),
+            technologies: draft.tech,
+          })
+          setProjects((prev) => [...prev, projectFromApi(created)])
+          return null
+        } catch (cause) {
+          return cause instanceof Error ? cause.message : 'Не удалось создать проект'
+        }
       }
 
       const project: Project = {
@@ -88,17 +134,19 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         accent: draft.accent,
         tech: draft.tech,
         progress: 0,
-        dueDate: new Date(`${draft.due}T00:00:00`),
+        dueDate,
       }
 
-      persist([...projects, project])
+      const next = [...projects, project]
+      saveLocal(next)
+      setProjects(next)
       return null
     },
-    [projects, persist],
+    [projects],
   )
 
   const updateProject = useCallback(
-    (id: string, draft: ProjectDraft): string | null => {
+    async (id: string, draft: ProjectDraft): Promise<string | null> => {
       const name = draft.name.trim()
       if (name.length < 2) return 'Название должно содержать минимум 2 символа'
       if (
@@ -109,56 +157,101 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         return 'Проект с таким названием уже существует'
       }
 
-      persist(
-        projects.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                name,
-                short: monogram(name),
-                description: draft.description.trim(),
-                status: draft.status,
-                accent: draft.accent,
-                tech: draft.tech,
-                dueDate: new Date(`${draft.due}T00:00:00`),
-              }
-            : item,
-        ),
+      const dueDate = draft.due ? new Date(`${draft.due}T00:00:00`) : null
+
+      if (API_ENABLED) {
+        try {
+          const updated = await api.patch<ApiProject>(`/projects/${id}`, {
+            name,
+            description: draft.description.trim(),
+            status: draft.status,
+            color: draft.accent,
+            due_date: toDayString(dueDate),
+            technologies: draft.tech,
+          })
+          setProjects((prev) =>
+            prev.map((item) => (item.id === id ? projectFromApi(updated) : item)),
+          )
+          return null
+        } catch (cause) {
+          return cause instanceof Error ? cause.message : 'Не удалось сохранить проект'
+        }
+      }
+
+      const next = projects.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              name,
+              short: monogram(name),
+              description: draft.description.trim(),
+              status: draft.status,
+              accent: draft.accent,
+              tech: draft.tech,
+              dueDate,
+            }
+          : item,
       )
+      saveLocal(next)
+      setProjects(next)
       return null
     },
-    [projects, persist],
+    [projects],
   )
 
   const setStatus = useCallback(
-    (id: string, status: ProjectStatus) => {
-      persist(projects.map((item) => (item.id === id ? { ...item, status } : item)))
+    async (id: string, status: ProjectStatus) => {
+      if (API_ENABLED) {
+        try {
+          const updated = await api.patch<ApiProject>(`/projects/${id}`, { status })
+          setProjects((prev) =>
+            prev.map((item) => (item.id === id ? projectFromApi(updated) : item)),
+          )
+        } catch {
+          await reload()
+        }
+        return
+      }
+
+      const next = projects.map((item) => (item.id === id ? { ...item, status } : item))
+      saveLocal(next)
+      setProjects(next)
     },
-    [projects, persist],
+    [projects, reload],
   )
 
   const removeProject = useCallback(
-    (id: string) => {
-      persist(projects.filter((item) => item.id !== id))
-    },
-    [projects, persist],
-  )
+    async (id: string) => {
+      if (API_ENABLED) {
+        try {
+          await api.delete(`/projects/${id}`)
+        } catch {
+          await reload()
+          return
+        }
+        setProjects((prev) => prev.filter((item) => item.id !== id))
+        return
+      }
 
-  const resetProjects = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    setProjects(PROJECTS)
-  }, [])
+      const next = projects.filter((item) => item.id !== id)
+      saveLocal(next)
+      setProjects(next)
+    },
+    [projects, reload],
+  )
 
   const value = useMemo<ProjectsContextValue>(
     () => ({
       projects,
+      ready,
+      error,
+      reload,
       createProject,
       updateProject,
       setStatus,
       removeProject,
-      resetProjects,
     }),
-    [projects, createProject, updateProject, setStatus, removeProject, resetProjects],
+    [projects, ready, error, reload, createProject, updateProject, setStatus, removeProject],
   )
 
   return <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>
@@ -172,7 +265,8 @@ export function useProjects(): ProjectsContextValue {
   return context
 }
 
-export function toDateInputValue(date: Date): string {
+export function toDateInputValue(date: Date | null): string {
+  if (!date) return ''
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${date.getFullYear()}-${month}-${day}`

@@ -3,7 +3,8 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { ProgressBar } from '../components/ui'
-import { PROJECTS, formatShortDate } from '../data/mockData'
+import { formatShortDate } from '../data/mockData'
+import { useProjects } from '../data/projectsStore'
 import {
   CATEGORY_LABEL,
   CATEGORY_ORDER,
@@ -17,13 +18,15 @@ type CategoryFilter = 'all' | TechCategory
 
 export default function TechnologiesPage() {
   const { technologies, addTechnology } = useTechnologies()
+  const { projects } = useProjects()
 
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [query, setQuery] = useState('')
   const [selectedName, setSelectedName] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
 
-  const projectsOf = (name: string) => PROJECTS.filter((project) => project.tech.includes(name))
+  const projectsOf = (name: string) =>
+    projects.filter((project) => project.tech.includes(name))
 
   const filtered = useMemo(() => {
     const text = query.trim().toLowerCase()
@@ -204,8 +207,8 @@ export default function TechnologiesPage() {
       {modalOpen && (
         <TechnologyModal
           onClose={() => setModalOpen(false)}
-          onSubmit={(draft) => {
-            const error = addTechnology(draft)
+          onSubmit={async (draft) => {
+            const error = await addTechnology(draft)
             if (error) return error
             setSelectedName(draft.name.trim())
             setModalOpen(false)
@@ -219,7 +222,7 @@ export default function TechnologiesPage() {
 
 interface TechnologyModalProps {
   onClose: () => void
-  onSubmit: (draft: TechDraft) => string | null
+  onSubmit: (draft: TechDraft) => Promise<string | null> | string | null
 }
 
 function TechnologyModal({ onClose, onSubmit }: TechnologyModalProps) {
@@ -228,11 +231,17 @@ function TechnologyModal({ onClose, onSubmit }: TechnologyModalProps) {
   const [category, setCategory] = useState<TechCategory>('framework')
   const [color, setColor] = useState(TECH_PALETTE[0])
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
-    const message = onSubmit({ name, short, category, color })
-    if (message) setError(message)
+    setBusy(true)
+    try {
+      const message = await onSubmit({ name, short, category, color })
+      if (message) setError(message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -314,8 +323,8 @@ function TechnologyModal({ onClose, onSubmit }: TechnologyModalProps) {
             <button type="button" className="button button--ghost" onClick={onClose}>
               Отмена
             </button>
-            <button type="submit" className="button button--primary">
-              Добавить технологию
+            <button type="submit" className="button button--primary" disabled={busy}>
+              {busy ? 'Добавляем…' : 'Добавить технологию'}
             </button>
           </div>
         </form>

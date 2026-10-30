@@ -17,6 +17,7 @@ type Period = (typeof PERIODS)[number]['key']
 const DAY = 86_400_000
 
 function diffDays(task: StoredTask): number {
+  if (!task.dueDate) return Number.POSITIVE_INFINITY
   const flat = new Date(
     task.dueDate.getFullYear(),
     task.dueDate.getMonth(),

@@ -25,20 +25,28 @@ export function addDays(offset: number): Date {
   return new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset)
 }
 
-export function formatShortDate(date: Date): string {
+export function formatShortDate(date: Date | null): string {
+  if (!date) return 'без срока'
   return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
 }
 
-export function daysUntil(date: Date): number {
+export function daysUntil(date: Date | null): number {
+  if (!date) return Number.POSITIVE_INFINITY
   return Math.round((date.getTime() - today.getTime()) / 86_400_000)
 }
 
-export function isOverdue(date: Date): boolean {
+/** Значение для сортировки: записи без срока оказываются в конце списка. */
+export function deadlineValue(date: Date | null): number {
+  return date ? date.getTime() : Number.POSITIVE_INFINITY
+}
+
+export function isOverdue(date: Date | null): boolean {
   return daysUntil(date) < 0
 }
 
-export function relativeDeadline(date: Date): string {
+export function relativeDeadline(date: Date | null): string {
   const days = daysUntil(date)
+  if (!Number.isFinite(days)) return 'без срока'
   if (days < 0) return `просрочено на ${Math.abs(days)} дн.`
   if (days === 0) return 'сегодня'
   if (days === 1) return 'завтра'
@@ -160,7 +168,7 @@ export const averageProgress =
       )
 
 export const nearestDeadline = [...activeProjects].sort(
-  (a, b) => a.dueDate.getTime() - b.dueDate.getTime(),
+  (a, b) => deadlineValue(a.dueDate) - deadlineValue(b.dueDate),
 )[0]
 
 export function technologyUsage(): Array<Technology & { count: number }> {

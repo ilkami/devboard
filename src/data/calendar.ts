@@ -33,16 +33,19 @@ export const KIND_LABEL: Record<CalendarEventKind, string> = {
 
 /** Собирает события из переданных задач и этапов проектов. */
 export function buildEvents(tasks: TaskItem[]): CalendarEvent[] {
-  const taskEvents: CalendarEvent[] = tasks.map((task) => ({
-    id: `task-${task.id}`,
-    kind: 'task',
-    title: task.title,
-    project: task.project,
-    date: task.dueDate,
-    color: PRIORITY_COLOR[task.priority],
-    done: task.done,
-    priority: task.priority,
-  }))
+  // Задачи без срока не могут попасть в календарь
+  const taskEvents: CalendarEvent[] = tasks
+    .filter((task): task is TaskItem & { dueDate: Date } => task.dueDate !== null)
+    .map((task) => ({
+      id: `task-${task.id}`,
+      kind: 'task',
+      title: task.title,
+      project: task.project,
+      date: task.dueDate,
+      color: PRIORITY_COLOR[task.priority],
+      done: task.done,
+      priority: task.priority,
+    }))
 
   const milestoneEvents: CalendarEvent[] = MILESTONES.map((item) => ({
     id: `milestone-${item.id}`,

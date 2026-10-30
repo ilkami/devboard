@@ -13,16 +13,18 @@ if (!container) {
   throw new Error('Не найден корневой элемент #root в index.html')
 }
 
+// Порядок провайдеров важен: задачи ссылаются на проекты (по project_id),
+// поэтому ProjectsProvider должен быть выше TasksProvider.
 createRoot(container).render(
   <StrictMode>
     <AuthProvider>
-      <TasksProvider>
+      <ProjectsProvider>
         <TechnologiesProvider>
-          <ProjectsProvider>
+          <TasksProvider>
             <App />
-          </ProjectsProvider>
+          </TasksProvider>
         </TechnologiesProvider>
-      </TasksProvider>
+      </ProjectsProvider>
     </AuthProvider>
   </StrictMode>,
 )

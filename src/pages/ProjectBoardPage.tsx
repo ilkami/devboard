@@ -18,11 +18,22 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 export default function ProjectBoardPage() {
   const { projectId } = useParams()
   const navigate = useNavigate()
-  const { projects, updateProject, setStatus, removeProject } = useProjects()
-  const { allTasks } = useTasks()
+  const { projects, ready, updateProject, setStatus, removeProject } = useProjects()
+  const { allTasks, ready: tasksReady, moveTask } = useTasks()
   const [editing, setEditing] = useState(false)
 
   const project = projects.find((item) => item.id === projectId)
+
+  if (!ready || !tasksReady) {
+    return (
+      <div className="page">
+        <div className="empty-state">
+          <span className="app-loading__spinner" />
+          <p>Загружаем проект…</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!project) {
     return (
@@ -43,12 +54,12 @@ export default function ProjectBoardPage() {
   )
   const overdue = isOverdue(project.dueDate)
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     const confirmed = window.confirm(
       `Удалить проект «${project.name}»? Вместе с ним исчезнет и его доска.`,
     )
     if (confirmed) {
-      removeProject(project.id)
+      await removeProject(project.id)
       navigate('/projects')
     }
   }
@@ -147,13 +158,13 @@ export default function ProjectBoardPage() {
           <div className="panel__headings">
             <h2 className="panel__title">Kanban-доска</h2>
             <p className="panel__subtitle">
-              Перетащите задачу между колонками — положение сохраняется в браузере
+              Перетащите задачу между колонками — статус сохраняется в базе и влияет на прогресс
             </p>
           </div>
         </header>
 
         <div className="panel__body">
-          <KanbanBoard projectId={project.id} tasks={tasks} />
+          <KanbanBoard tasks={tasks} onMove={moveTask} />
         </div>
       </section>
 
@@ -161,8 +172,8 @@ export default function ProjectBoardPage() {
         <ProjectModal
           initial={project}
           onClose={() => setEditing(false)}
-          onSubmit={(draft) => {
-            const error = updateProject(project.id, draft)
+          onSubmit={async (draft) => {
+            const error = await updateProject(project.id, draft)
             if (error) return error
             setEditing(false)
             return null

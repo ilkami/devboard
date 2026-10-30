@@ -1,16 +1,18 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { api, API_ENABLED, refreshSession } from '../api/client'
+import type { ApiSession, ApiUser } from '../api/dto'
+import { userFromApi } from '../api/mappers'
 
 /**
  * Слой авторизации интерфейса.
  *
- * На текущем этапе пользователи и сессия хранятся в localStorage браузера:
- * этого достаточно, чтобы регистрация, вход и выход работали без сервера.
- * Пароль целиком не сохраняется — хранится только его хеш с индивидуальной солью.
+ * При работе через сервер сессия живёт в HttpOnly-cookie, которую выставляет FastAPI:
+ * пароль проверяется по Argon2id-хешу в PostgreSQL, access-токен живёт 15 минут
+ * и обновляется через /auth/refresh с ротацией refresh-токена.
  *
- * При подключении backend (FastAPI + PostgreSQL) этот модуль заменяется вызовами
- * POST /auth/register, POST /auth/login, POST /auth/refresh, POST /auth/logout:
- * там будут Argon2id, JWT с ротацией refresh-токена и HttpOnly-cookie.
+ * Автономная сборка (file://) работает без сервера: пользователи хранятся в localStorage,
+ * пароль сохраняется только в виде SHA-256-хеша с индивидуальной солью.
  */
 
 export interface AuthUser {
@@ -39,9 +41,11 @@ export interface LoginInput {
 
 interface AuthContextValue {
   user: AuthUser | null
+  /** true, пока проверяется сохранённая сессия (нужно, чтобы не мигать формой входа). */
+  loading: boolean
   register: (input: RegisterInput) => Promise<void>
   login: (input: LoginInput) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const USERS_KEY = 'devboard.users'
@@ -126,6 +130,7 @@ export function initials(name: string): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
+    if (API_ENABLED) return null
     try {
       const id = localStorage.getItem(SESSION_KEY)
       if (!id) return null
@@ -135,8 +140,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null
     }
   })
+  const [loading, setLoading] = useState(API_ENABLED)
+
+  // Восстановление сессии: access-токен живёт 15 минут, поэтому при 401
+  // пробуем обновить его refresh-токеном.
+  useEffect(() => {
+    if (!API_ENABLED) return
+
+    let alive = true
+
+    const restore = async () => {
+      try {
+        const profile = await api.get<ApiUser>('/auth/me')
+        if (alive) setUser(userFromApi(profile))
+      } catch {
+        const refreshed = await refreshSession()
+        if (!refreshed) return
+        try {
+          const profile = await api.get<ApiUser>('/auth/me')
+          if (alive) setUser(userFromApi(profile))
+        } catch {
+          // сессия действительно истекла — остаёмся на форме входа
+        }
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    void restore()
+
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const register = useCallback(async ({ name, email, password, roleTitle }: RegisterInput) => {
+    if (API_ENABLED) {
+      const session = await api.post<ApiSession>('/auth/register', {
+        name: name.trim(),
+        email: normaliseEmail(email),
+        password,
+        role_title: roleTitle?.trim() || 'Разработчик',
+      })
+      setUser(userFromApi(session.user))
+      return
+    }
+
     const cleanEmail = normaliseEmail(email)
     const users = readUsers()
 
@@ -162,6 +211,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async ({ email, password }: LoginInput) => {
+    if (API_ENABLED) {
+      const session = await api.post<ApiSession>('/auth/login', {
+        email: normaliseEmail(email),
+        password,
+      })
+      setUser(userFromApi(session.user))
+      return
+    }
+
     const cleanEmail = normaliseEmail(email)
     const found = readUsers().find((item) => item.email === cleanEmail)
 
@@ -180,14 +238,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(toProfile(found))
   }, [])
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    if (API_ENABLED) {
+      try {
+        await api.post('/auth/logout')
+      } catch {
+        // даже если запрос не дошёл, локальное состояние нужно сбросить
+      }
+      setUser(null)
+      return
+    }
+
     localStorage.removeItem(SESSION_KEY)
     setUser(null)
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, register, login, logout }),
-    [user, register, login, logout],
+    () => ({ user, loading, register, login, logout }),
+    [user, loading, register, login, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

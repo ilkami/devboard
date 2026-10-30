@@ -11,7 +11,18 @@ import AuthPage from './pages/AuthPage'
 import { useAuth } from './auth/AuthContext'
 
 function ProtectedShell() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+
+  // Пока проверяется cookie-сессия, не перенаправляем на форму входа
+  if (loading) {
+    return (
+      <div className="app-loading">
+        <span className="app-loading__spinner" />
+        <p>Загружаем рабочее пространство…</p>
+      </div>
+    )
+  }
+
   if (!user) {
     return <Navigate to="/login" replace />
   }

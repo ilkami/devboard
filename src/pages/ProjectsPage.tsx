@@ -4,6 +4,7 @@ import Icon from '../components/Icon'
 import ProjectCard from '../components/ProjectCard'
 import ProjectModal from '../components/ProjectModal'
 import { useProjects } from '../data/projectsStore'
+import { deadlineValue } from '../data/mockData'
 import { plural } from '../utils/plural'
 import type { ProjectStatus } from '../types'
 
@@ -56,7 +57,7 @@ export default function ProjectsPage() {
       )
     })
 
-    if (sort === 'due') return [...list].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+    if (sort === 'due') return [...list].sort((a, b) => deadlineValue(a.dueDate) - deadlineValue(b.dueDate))
     if (sort === 'progress') return [...list].sort((a, b) => b.progress - a.progress)
     return [...list].sort((a, b) => a.name.localeCompare(b.name))
   }, [projects, filter, sort, query])
@@ -143,8 +144,8 @@ export default function ProjectsPage() {
       {modalOpen && (
         <ProjectModal
           onClose={() => setModalOpen(false)}
-          onSubmit={(draft) => {
-            const error = createProject(draft)
+          onSubmit={async (draft) => {
+            const error = await createProject(draft)
             if (error) return error
             setModalOpen(false)
             return null

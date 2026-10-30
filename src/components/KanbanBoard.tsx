@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Icon from './Icon'
 import { PriorityBadge } from './ui'
 import { formatShortDate, isOverdue } from '../data/mockData'
@@ -13,47 +13,32 @@ const COLUMNS: Array<{ key: ColumnKey; title: string }> = [
 ]
 
 interface KanbanBoardProps {
-  projectId: string
   tasks: TaskItem[]
+  /** Перемещение карточки: статус задачи сохраняется через API. */
+  onMove?: (taskId: string, column: ColumnKey) => void
 }
 
-export default function KanbanBoard({ projectId, tasks }: KanbanBoardProps) {
-  const storageKey = `devboard.board.${projectId}`
-
-  // Перемещения задач хранятся отдельно от исходных данных,
-  // поэтому доска сохраняется даже после перезагрузки страницы.
-  const [moves, setMoves] = useState<Record<string, ColumnKey>>(() => {
-    try {
-      const raw = localStorage.getItem(storageKey)
-      return raw ? (JSON.parse(raw) as Record<string, ColumnKey>) : {}
-    } catch {
-      return {}
-    }
-  })
-
+export default function KanbanBoard({ tasks, onMove }: KanbanBoardProps) {
   const [dragId, setDragId] = useState<string | null>(null)
   const [overColumn, setOverColumn] = useState<ColumnKey | null>(null)
-
-  useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(moves))
-  }, [storageKey, moves])
 
   const grouped = useMemo(() => {
     const map: Record<ColumnKey, TaskItem[]> = { todo: [], in_progress: [], done: [] }
 
-    tasks.forEach((task, index) => {
-      const column = moves[task.id] ?? (task.done ? 'done' : index % 2 === 0 ? 'in_progress' : 'todo')
+    tasks.forEach((task) => {
+      // Колонка берётся из статуса задачи в базе, а не из порядка в списке
+      const column: ColumnKey = task.status ?? (task.done ? 'done' : 'todo')
       map[column].push(task)
     })
 
     return map
-  }, [tasks, moves])
+  }, [tasks])
 
   const doneCount = grouped.done.length
   const percent = tasks.length === 0 ? 0 : Math.round((doneCount / tasks.length) * 100)
 
   const move = (taskId: string, column: ColumnKey) => {
-    setMoves((previous) => ({ ...previous, [taskId]: column }))
+    onMove?.(taskId, column)
   }
 
   return (

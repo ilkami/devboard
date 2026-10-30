@@ -3,7 +3,8 @@ import type { FormEvent } from 'react'
 import Icon from '../components/Icon'
 import { PriorityBadge } from '../components/ui'
 import { dayKey } from '../data/calendar'
-import { PROJECTS, formatShortDate, today } from '../data/mockData'
+import { formatShortDate, today } from '../data/mockData'
+import { useProjects } from '../data/projectsStore'
 import { useTasks } from '../data/tasksStore'
 import type { StoredTask, TaskDraft } from '../data/tasksStore'
 import type { Priority } from '../types'
@@ -37,7 +38,8 @@ const BUCKET_ORDER: Bucket[] = ['overdue', 'today', 'tomorrow', 'week', 'later']
 
 const DAY = 86_400_000
 
-function diffDays(date: Date): number {
+function diffDays(date: Date | null): number {
+  if (!date) return Number.POSITIVE_INFINITY
   const flat = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   return Math.round((flat - today.getTime()) / DAY)
 }
@@ -57,6 +59,7 @@ function isoIn(days: number): string {
 
 export default function TasksPage() {
   const { rootTasks, subtasksOf, toggleTask, removeTask, createTask, addSubtask } = useTasks()
+  const { projects } = useProjects()
 
   const [period, setPeriod] = useState<Period>('all')
   const [project, setProject] = useState('all')
@@ -151,9 +154,9 @@ export default function TasksPage() {
               aria-label="Проект"
             >
               <option value="all">Все проекты</option>
-              {PROJECTS.map((item) => (
-                <option key={item.id} value={item.name}>
-                  {item.name}
+              {projects.map((project) => (
+                <option key={project.id} value={project.name}>
+                  {project.name}
                 </option>
               ))}
             </select>
@@ -322,6 +325,7 @@ export default function TasksPage() {
 
       {modalOpen && (
         <TaskModal
+          projects={projects.map((project) => project.name)}
           onClose={() => setModalOpen(false)}
           onCreate={createTask}
         />
@@ -331,25 +335,37 @@ export default function TasksPage() {
 }
 
 interface TaskModalProps {
+  projects: string[]
   onClose: () => void
-  onCreate: (draft: TaskDraft) => void
+  onCreate: (draft: TaskDraft) => Promise<string | null>
 }
 
-function TaskModal({ onClose, onCreate }: TaskModalProps) {
+function TaskModal({ projects, onClose, onCreate }: TaskModalProps) {
   const [title, setTitle] = useState('')
-  const [project, setProject] = useState(PROJECTS[0]?.name ?? '')
+  const [project, setProject] = useState(projects[0] ?? '')
   const [priority, setPriority] = useState<Priority>('medium')
   const [due, setDue] = useState(() => isoIn(7))
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (title.trim().length < 3) {
       setError('Название должно содержать минимум 3 символа')
       return
     }
-    onCreate({ title, project, priority, due })
-    onClose()
+
+    setBusy(true)
+    try {
+      const message = await onCreate({ title, project, priority, due })
+      if (message) {
+        setError(message)
+        return
+      }
+      onClose()
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -383,15 +399,15 @@ function TaskModal({ onClose, onCreate }: TaskModalProps) {
               value={project}
               onChange={(event) => setProject(event.target.value)}
             >
-              {PROJECTS.map((item) => (
-                <option key={item.id} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
+               {projects.map((name) => (
+                 <option key={name} value={name}>
+                   {name}
+                 </option>
+               ))}
+             </select>
+           </label>
 
-          <div className="field-row">
+           <div className="field-row">
             <label className="field">
               <span className="field__label">Приоритет</span>
               <select

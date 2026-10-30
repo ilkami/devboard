@@ -1,17 +1,24 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { TECHNOLOGIES } from './mockData'
 import type { Technology } from '../types'
+import { useAuth } from '../auth/AuthContext'
+import { api, API_ENABLED } from '../api/client'
+import type { ApiTechnology } from '../api/dto'
+import { technologyFromApi } from '../api/mappers'
 
 /**
  * Справочник технологий.
- * Категория хранится рядом с названием, сокращением и цветом метки.
- * Новые технологии сохраняются в localStorage и попадают в панель на главной.
+ *
+ * В обычном режиме читается из /technologies (таблица technologies в PostgreSQL).
+ * Автономная сборка (file://) хранит справочник в localStorage.
  */
 
 export type TechCategory = 'language' | 'framework' | 'database' | 'devops'
 
 export interface TechEntry extends Technology {
+  /** Идентификатор в базе; в автономном режиме отсутствует. */
+  id?: string
   category: TechCategory
 }
 
@@ -59,25 +66,25 @@ const CATEGORY_BY_NAME: Record<string, TechCategory> = {
 
 const STORAGE_KEY = 'devboard.technologies'
 
-function seed(): TechEntry[] {
+function seedLocal(): TechEntry[] {
   return TECHNOLOGIES.map((tech) => ({
     ...tech,
     category: CATEGORY_BY_NAME[tech.name] ?? 'framework',
   }))
 }
 
-function load(): TechEntry[] {
+function loadLocal(): TechEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return seed()
+    if (!raw) return seedLocal()
     const parsed = JSON.parse(raw) as TechEntry[]
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : seed()
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : seedLocal()
   } catch {
-    return seed()
+    return seedLocal()
   }
 }
 
-function save(technologies: TechEntry[]): void {
+function saveLocal(technologies: TechEntry[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(technologies))
 }
 
@@ -90,22 +97,42 @@ function makeShort(name: string): string {
 
 interface TechnologiesContextValue {
   technologies: TechEntry[]
-  addTechnology: (draft: TechDraft) => string | null
-  resetTechnologies: () => void
+  ready: boolean
+  addTechnology: (draft: TechDraft) => Promise<string | null>
 }
 
 const TechnologiesContext = createContext<TechnologiesContextValue | null>(null)
 
 export function TechnologiesProvider({ children }: { children: ReactNode }) {
-  const [technologies, setTechnologies] = useState<TechEntry[]>(load)
+  const { user } = useAuth()
+  const [technologies, setTechnologies] = useState<TechEntry[]>(() =>
+    API_ENABLED ? [] : loadLocal(),
+  )
+  const [ready, setReady] = useState(!API_ENABLED)
 
-  const resetTechnologies = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY)
-    setTechnologies(seed())
+  const reload = useCallback(async () => {
+    try {
+      const items = await api.get<ApiTechnology[]>('/technologies')
+      setTechnologies(items.map(technologyFromApi))
+    } catch {
+      setTechnologies([])
+    } finally {
+      setReady(true)
+    }
   }, [])
 
+  useEffect(() => {
+    if (!API_ENABLED) return
+    if (!user) {
+      setTechnologies([])
+      setReady(false)
+      return
+    }
+    void reload()
+  }, [user, reload])
+
   const addTechnology = useCallback(
-    (draft: TechDraft): string | null => {
+    async (draft: TechDraft): Promise<string | null> => {
       const name = draft.name.trim()
 
       if (name.length < 2) return 'Название должно содержать минимум 2 символа'
@@ -113,15 +140,26 @@ export function TechnologiesProvider({ children }: { children: ReactNode }) {
         return 'Такая технология уже есть в справочнике'
       }
 
-      const entry: TechEntry = {
-        name,
-        short: draft.short.trim() ? draft.short.trim().slice(0, 3) : makeShort(name),
-        color: draft.color,
-        category: draft.category,
+      const short = draft.short.trim() ? draft.short.trim().slice(0, 3) : makeShort(name)
+
+      if (API_ENABLED) {
+        try {
+          const created = await api.post<ApiTechnology>('/technologies', {
+            name,
+            short,
+            color: draft.color,
+            category: draft.category,
+          })
+          setTechnologies((prev) => [...prev, technologyFromApi(created)])
+          return null
+        } catch (cause) {
+          return cause instanceof Error ? cause.message : 'Не удалось добавить технологию'
+        }
       }
 
+      const entry: TechEntry = { name, short, color: draft.color, category: draft.category }
       const next = [...technologies, entry]
-      save(next)
+      saveLocal(next)
       setTechnologies(next)
       return null
     },
@@ -129,8 +167,8 @@ export function TechnologiesProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<TechnologiesContextValue>(
-    () => ({ technologies, addTechnology, resetTechnologies }),
-    [technologies, addTechnology, resetTechnologies],
+    () => ({ technologies, ready, addTechnology }),
+    [technologies, ready, addTechnology],
   )
 
   return <TechnologiesContext.Provider value={value}>{children}</TechnologiesContext.Provider>

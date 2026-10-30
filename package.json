@@ -10,6 +10,9 @@
   "scripts": {
     "start": "vite",
     "dev": "vite",
+    "api": "python -m uvicorn app.main:app --app-dir backend --reload --port 8000",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
     "build": "tsc --noEmit && vite build",
     "build:standalone": "tsc --noEmit && vite build --config vite.standalone.config.ts",
     "preview": "vite preview"
